@@ -1,0 +1,56 @@
+
+#   docker compose up -d
+#   Master UI:      http://localhost:8080
+#   Application UI: http://localhost:4040  (only while a job is running)
+
+x-spark-common: &spark-common
+  image: apache/spark:3.5.1
+  environment: &spark-env
+    SPARK_NO_DAEMONIZE: "true"
+  volumes:
+    - ./data:/opt/data          
+    - ./apps:/opt/apps          
+  networks: [sparknet]
+
+services:
+  spark-master:
+    <<: *spark-common
+    container_name: spark-master
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+    environment:
+      <<: *spark-env
+      SPARK_MASTER_HOST: spark-master
+    ports:
+      - "18080:8080"             
+      - "17077:7077"            
+      - "14041:4040"             
+
+  spark-worker-1:
+    <<: *spark-common
+    container_name: spark-worker-1
+    depends_on: [spark-master]
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    environment:
+      <<: *spark-env
+      SPARK_WORKER_CORES: "2"   
+      SPARK_WORKER_MEMORY: 2g
+      SPARK_WORKER_WEBUI_PORT: "8083"
+    ports:
+      - "18083:8083"
+
+  spark-worker-2:
+    <<: *spark-common
+    container_name: spark-worker-2
+    depends_on: [spark-master]
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    environment:
+      <<: *spark-env
+      SPARK_WORKER_CORES: "2"
+      SPARK_WORKER_MEMORY: 2g
+      SPARK_WORKER_WEBUI_PORT: "8084"
+    ports:
+      - "18084:8084"
+
+networks:
+  sparknet:
+    driver: bridge
